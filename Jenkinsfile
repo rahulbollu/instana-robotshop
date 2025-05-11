@@ -3,21 +3,26 @@ pipeline {
 
   parameters {
     string(name: 'DOCKER_IMAGE_TAG', defaultValue: 'latest', description: 'Tag for Docker Image')
-    string(name: 'GIT_BRANCH', defaultValue: 'develop', description: 'Git Branch to Build')
+    string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git Branch to Build')
   }
 
   environment {
-    SONAR_HOST      = credentials('sonarqube-url')
-    SONAR_TOKEN     = credentials('sonarqube-token')
-    DOCKER_USERNAME = credentials('docker-user')
-    DOCKER_PASSWORD = credentials('docker-pass')
-    GITHUB_TOKEN    = credentials('github-token')
-    REPO_URL        = "https://github.com/rahulbollu/instana-robotshop.git"
-    IMAGE_NAME      = "rahulbollu/cart-service"
+    SONAR_HOST      = credentials('sonarqube-url')      // Secret Text
+    SONAR_TOKEN     = credentials('sonarqube-token')    // Secret Text
+    DOCKER_USERNAME = credentials('docker-user')        // Username
+    DOCKER_PASSWORD = credentials('docker-pass')        // Password
+    GITHUB_TOKEN    = credentials('github-token')       // Secret Text
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key')   // Secret Text
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')   // Secret Text
+
+    REPO_URL    = "https://github.com/rahulbollu/instana-robotshop.git"
+    IMAGE_NAME  = "rahulbollu/cart"
+    CLUSTER     = "three-tier-cluster"
+    REGION      = "us-east-1"
+    NAMESPACE   = "robot-shop"
   }
 
   stages {
-
     stage('Clone Repository') {
       steps {
         echo "✅ Cloning branch: ${params.GIT_BRANCH}"
@@ -25,9 +30,9 @@ pipeline {
       }
     }
 
-    stage('Install Dependencies') {
+    stage('Build Cart Service') {
       steps {
-        echo "🔧 Installing Node dependencies..."
+        echo "🔧 Building cart service..."
         sh '''
           cd cart
           npm install
@@ -37,15 +42,14 @@ pipeline {
 
     stage('SonarQube Analysis') {
       steps {
-        echo "🔍 Running SonarQube Analysis..."
+        echo "🔍 Running static code analysis..."
         sh '''
           cd cart
           sonar-scanner \
             -Dsonar.projectKey=cart-service \
             -Dsonar.sources=. \
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
             -Dsonar.host.url=${SONAR_HOST} \
-            -Dsonar.login=${SONAR_TOKEN} || echo "SonarQube scan skipped (optional)"
+            -Dsonar.login=${SONAR_TOKEN}
         '''
       }
     }
@@ -62,17 +66,20 @@ pipeline {
       }
     }
 
-    stage('Update Kubernetes Deployment') {
+    stage('Deploy to EKS via Helm') {
       steps {
-        echo "✏️ Updating deployment file with image tag..."
+        echo "🚀 Deploying to EKS..."
         sh '''
-          git config --global --add safe.directory `pwd`
-          git config --global user.email "bvrahul3141@gmail.com"
-          git config --global user.name "RahulBollu"
-          sed -i "s/replaceImageTag/${DOCKER_IMAGE_TAG}/g" cart/k8s/deployment.yml
-          git add cart/k8s/deployment.yml
-          git commit -m "Update cart image to tag ${DOCKER_IMAGE_TAG}" || echo "No changes to commit"
-          git push https://${GITHUB_TOKEN}@github.com/rahulbollu/instana-robotshop HEAD:${GIT_BRANCH}
+          export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+          export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+          aws eks update-kubeconfig --name ${CLUSTER} --region ${REGION}
+
+          helm upgrade --install cart ./EKS/helm \
+            --namespace ${NAMESPACE} \
+            --create-namespace \
+            --set image.repository=${IMAGE_NAME} \
+            --set image.tag=${DOCKER_IMAGE_TAG}
         '''
       }
     }
@@ -80,10 +87,10 @@ pipeline {
 
   post {
     success {
-      echo "✅ CI/CD Pipeline for Cart Service Completed!"
+      echo "✅ CI/CD Pipeline for Cart Service Completed Successfully!"
     }
     failure {
-      echo "❌ CI/CD Pipeline Failed"
+      echo "❌ CI/CD Failed. Please check the logs."
     }
   }
 }
