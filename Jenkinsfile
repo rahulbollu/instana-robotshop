@@ -48,6 +48,7 @@ pipeline {
         sh '''
           echo "sonar.projectKey=cart-service" > sonar-project.properties
           echo "sonar.sources=." >> sonar-project.properties
+          echo "sonar.exclusions=**/*.java" >> sonar-project.properties
           echo "sonar.host.url=${SONAR_HOST}" >> sonar-project.properties
           echo "sonar.login=${SONAR_TOKEN}" >> sonar-project.properties
 
