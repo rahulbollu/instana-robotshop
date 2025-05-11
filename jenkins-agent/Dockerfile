@@ -1,4 +1,4 @@
-FROM maven:3.9.3-eclipse-temurin-17
+FROM maven:3.9.9-eclipse-temurin-24-alpine
 
 # Install Node.js 18 and Docker CLI
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
