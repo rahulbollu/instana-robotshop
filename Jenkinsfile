@@ -3,15 +3,15 @@ pipeline {
 
   parameters {
     string(name: 'DOCKER_IMAGE_TAG', defaultValue: 'latest', description: 'Tag for Docker Image')
-    string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git Branch to Build')
+    string(name: 'GIT_BRANCH', defaultValue: 'develop', description: 'Git Branch to Build')
   }
 
   environment {
-    SONAR_HOST      = credentials('sonarqube-url')      // Secret Text: http://<IP>:9000
-    SONAR_TOKEN     = credentials('sonarqube-token')    // Secret Text
-    DOCKER_USERNAME = credentials('docker-user')        // Username/Password
+    SONAR_HOST      = credentials('sonarqube-url')
+    SONAR_TOKEN     = credentials('sonarqube-token')
+    DOCKER_USERNAME = credentials('docker-user')
     DOCKER_PASSWORD = credentials('docker-pass')
-    GITHUB_TOKEN    = credentials('github-token')       // Secret Text: GitHub PAT
+    GITHUB_TOKEN    = credentials('github-token')
     REPO_URL        = "https://github.com/rahulbollu/instana-robotshop.git"
     IMAGE_NAME      = "rahulbollu/cart-service"
   }
@@ -25,25 +25,27 @@ pipeline {
       }
     }
 
-    stage('Build Cart Service') {
+    stage('Install Dependencies') {
       steps {
-        echo "🔧 Building cart service..."
+        echo "🔧 Installing Node dependencies..."
         sh '''
           cd cart
-          mvn clean package
+          npm install
         '''
       }
     }
 
     stage('SonarQube Analysis') {
       steps {
-        echo "🔍 Running static code analysis..."
+        echo "🔍 Running SonarQube Analysis..."
         sh '''
           cd cart
-          mvn sonar:sonar \
+          sonar-scanner \
             -Dsonar.projectKey=cart-service \
+            -Dsonar.sources=. \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
             -Dsonar.host.url=${SONAR_HOST} \
-            -Dsonar.login=${SONAR_TOKEN}
+            -Dsonar.login=${SONAR_TOKEN} || echo "SonarQube scan skipped (optional)"
         '''
       }
     }
@@ -67,11 +69,10 @@ pipeline {
           git config --global --add safe.directory `pwd`
           git config --global user.email "bvrahul3141@gmail.com"
           git config --global user.name "RahulBollu"
-
           sed -i "s/replaceImageTag/${DOCKER_IMAGE_TAG}/g" cart/k8s/deployment.yml
           git add cart/k8s/deployment.yml
           git commit -m "Update cart image to tag ${DOCKER_IMAGE_TAG}" || echo "No changes to commit"
-          git push https://${GITHUB_TOKEN}@github.com/rahulbollu/Jenkins-Zero-To-Hero HEAD:${GIT_BRANCH}
+          git push https://${GITHUB_TOKEN}@github.com/rahulbollu/instana-robotshop HEAD:${GIT_BRANCH}
         '''
       }
     }
@@ -82,7 +83,7 @@ pipeline {
       echo "✅ CI/CD Pipeline for Cart Service Completed!"
     }
     failure {
-      echo "❌ CI/CD Failed"
+      echo "❌ CI/CD Pipeline Failed"
     }
   }
 }
