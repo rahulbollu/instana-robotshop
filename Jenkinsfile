@@ -7,17 +7,22 @@ pipeline {
   }
 
   environment {
-    SONAR_HOST      = credentials('sonarqube-url')      // Secret Text: http://<IP>:9000
+    SONAR_HOST      = credentials('sonarqube-url')      // Secret Text
     SONAR_TOKEN     = credentials('sonarqube-token')    // Secret Text
-    DOCKER_USERNAME = credentials('docker-user')        // Username/Password
-    DOCKER_PASSWORD = credentials('docker-pass')
-    GITHUB_TOKEN    = credentials('github-token')       // Secret Text: GitHub PAT
-    REPO_URL        = "https://github.com/rahulbollu/instana-robotshop.git"
-    IMAGE_NAME      = "rahulbollu/cart-service"
+    DOCKER_USERNAME = credentials('docker-user')        // Username
+    DOCKER_PASSWORD = credentials('docker-pass')        // Password
+    GITHUB_TOKEN    = credentials('github-token')       // Secret Text
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key')   // Secret Text
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')   // Secret Text
+
+    REPO_URL    = "https://github.com/rahulbollu/instana-robotshop.git"
+    IMAGE_NAME  = "rahulbollu/cart-service"
+    CLUSTER     = "three-tier-cluster"
+    REGION      = "us-east-1"
+    NAMESPACE   = "robot-shop"
   }
 
   stages {
-
     stage('Clone Repository') {
       steps {
         echo "✅ Cloning branch: ${params.GIT_BRANCH}"
@@ -30,7 +35,7 @@ pipeline {
         echo "🔧 Building cart service..."
         sh '''
           cd cart
-          mvn clean package
+          npm install
         '''
       }
     }
@@ -40,8 +45,9 @@ pipeline {
         echo "🔍 Running static code analysis..."
         sh '''
           cd cart
-          mvn sonar:sonar \
+          sonar-scanner \
             -Dsonar.projectKey=cart-service \
+            -Dsonar.sources=. \
             -Dsonar.host.url=${SONAR_HOST} \
             -Dsonar.login=${SONAR_TOKEN}
         '''
@@ -60,18 +66,20 @@ pipeline {
       }
     }
 
-    stage('Update Kubernetes Deployment') {
+    stage('Deploy to EKS via Helm') {
       steps {
-        echo "✏️ Updating deployment file with image tag..."
+        echo "🚀 Deploying to EKS..."
         sh '''
-          git config --global --add safe.directory `pwd`
-          git config --global user.email "bvrahul3141@gmail.com"
-          git config --global user.name "RahulBollu"
+          export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+          export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
-          sed -i "s/replaceImageTag/${DOCKER_IMAGE_TAG}/g" cart/k8s/deployment.yml
-          git add cart/k8s/deployment.yml
-          git commit -m "Update cart image to tag ${DOCKER_IMAGE_TAG}" || echo "No changes to commit"
-          git push https://${GITHUB_TOKEN}@github.com/rahulbollu/Jenkins-Zero-To-Hero HEAD:${GIT_BRANCH}
+          aws eks update-kubeconfig --name ${CLUSTER} --region ${REGION}
+
+          helm upgrade --install cart ./EKS/helm \
+            --namespace ${NAMESPACE} \
+            --create-namespace \
+            --set image.repository=${IMAGE_NAME} \
+            --set image.tag=${DOCKER_IMAGE_TAG}
         '''
       }
     }
@@ -79,10 +87,10 @@ pipeline {
 
   post {
     success {
-      echo "✅ CI/CD Pipeline for Cart Service Completed!"
+      echo "✅ CI/CD Pipeline for Cart Service Completed Successfully!"
     }
     failure {
-      echo "❌ CI/CD Failed"
+      echo "❌ CI/CD Failed. Please check the logs."
     }
   }
 }
