@@ -16,7 +16,7 @@ pipeline {
     AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')   // Secret Text
 
     REPO_URL    = "https://github.com/rahulbollu/instana-robotshop.git"
-    IMAGE_NAME  = "rahulbollu/cart"
+    IMAGE_NAME  = "rahulbollu/cart-service"
     CLUSTER     = "three-tier-cluster"
     REGION      = "us-east-1"
     NAMESPACE   = "robot-shop"
