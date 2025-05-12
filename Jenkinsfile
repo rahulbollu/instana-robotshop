@@ -8,7 +8,7 @@ pipeline {
 
   parameters {
     string(name: 'DOCKER_IMAGE_TAG', defaultValue: 'latest', description: 'Docker image tag')
-    string(name: 'GIT_BRANCH', defaultValue: 'develop', description: 'Git branch to build from')
+    string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git branch to build from')
   }
 
   environment {
