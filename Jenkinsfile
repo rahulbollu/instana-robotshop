@@ -49,11 +49,14 @@ pipeline {
           echo "sonar.projectKey=cart-service" > sonar-project.properties
           echo "sonar.sources=." >> sonar-project.properties
           echo "sonar.exclusions=**/*.java" >> sonar-project.properties
-          echo "sonar.host.url=${SONAR_HOST}" >> sonar-project.properties
+          
+          echo "sonar.host.url=http://sonarqube:9000" >> sonar-project.properties
           echo "sonar.login=${SONAR_TOKEN}" >> sonar-project.properties
 
-          docker run --rm -v "$(pwd)":/usr/src -w /usr/src sonarsource/sonar-scanner-cli \
-            sonar-scanner
+          docker run --rm \
+            --network sonar-network \
+            -v "$(pwd)":/usr/src -w /usr/src \
+            sonarsource/sonar-scanner-cli sonar-scanner
         '''
       }
     }
