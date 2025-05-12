@@ -16,8 +16,9 @@ pipeline {
     IMAGE_NAME      = "rahulbollu/cart"
     SONAR_HOST      = credentials('sonarqube-url')
     SONAR_TOKEN     = credentials('sonarqube-token')
-    DOCKER_USERNAME = credentials('docker-user')
-    DOCKER_PASSWORD = credentials('docker-pass')
+    DOCKER_CREDS = credentials('docker-hub-creds')
+    // DOCKER_USERNAME = credentials('docker-user')
+    // DOCKER_PASSWORD = credentials('docker-pass')
     AWS_ACCESS_KEY  = credentials('aws-access-key')
     AWS_SECRET_KEY  = credentials('aws-secret-key')
     GITHUB_TOKEN    = credentials('github-token')
@@ -67,7 +68,7 @@ pipeline {
         sh '''
           cd cart
           docker build -t ${IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
-          echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+          echo "${DOCKER_CREDS_PSW}" | docker login -u "${DOCKER_CREDS_USR}" --password-stdin
           docker push ${IMAGE_NAME}:${DOCKER_IMAGE_TAG}
         '''
       }
