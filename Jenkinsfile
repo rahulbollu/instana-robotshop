@@ -81,16 +81,24 @@ pipeline {
           export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY}
           export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_KEY}
 
+          # Install eksctl (if not in image)
+          curl --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          mv /tmp/eksctl /usr/local/bin
+          chmod +x /usr/local/bin/eksctl
+
+          # Verify eksctl is available
+          eksctl version
+
           # Check if the EKS cluster exists, if not, create it
-          if ! aws eks describe-cluster --region us-west-2 --name robot-cluster > /dev/null 2>&1; then
+          if ! aws eks describe-cluster --region us-east-1 --name robot-cluster > /dev/null 2>&1; then
                echo "🔧 EKS cluster 'robot-cluster' does not exist. Creating..."
-          eksctl create cluster \
-            --name robot-cluster \
-            --region us-east-1 \
-            --nodes 2 \
-            --node-type t3.medium \
-            --with-oidc \
-            --managed
+               eksctl create cluster \
+                 --name robot-cluster \
+                 --region us-east-1 \
+                 --nodes 2 \
+                 --node-type t3.medium \
+                 --with-oidc \
+                 --managed
           else
             echo "✅ EKS cluster 'robot-cluster' already exists. Skipping creation."
           fi
